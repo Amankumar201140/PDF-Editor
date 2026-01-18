@@ -1,11 +1,9 @@
-import React from 'react'
 import TextArea from "./TextArea";
 
-function Home({isLoggedIn}) {
+function Home() {
   return (
-    // insted of flex-1 we can use h-full 
-    <div className="flex items-center justify-center flex-1 text-3xl text-white" >
-       <TextArea />
+    <div className="flex h-full items-center justify-center text-white text-3xl">
+      <TextArea />
     </div>
   );
 }

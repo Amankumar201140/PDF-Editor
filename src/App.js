@@ -1,4 +1,4 @@
-import { Routes,Route } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import "./App.css";
 import Navbar from "./Components/Navbar";
 import Home from "./pages/Home";
@@ -6,32 +6,42 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import PersonalRoute from "./Components/PersonalRoute";
+import PDFViewer from "./Components/PdfViewer";
 import { useState } from "react";
 
-
 function App() {
-
   const [isLoggedIn, setIsLoggedIn] = useState(false);
- 
 
-  return  (
-    <div className="flex flex-col w-screen h-full bg-richblack-900">
-      <Navbar isLoggedIn = {isLoggedIn} setIsLoggedIn = {setIsLoggedIn} />
+  return (
+    <div className="min-h-screen flex flex-col bg-richblack-900">
       
-  
-      <Routes>
-  
-        <Route path="/" element = {<Home isLoggedIn={isLoggedIn}/>}/>
-        <Route  path="/login" element={<Login setIsLoggedIn = {setIsLoggedIn}/>}/> 
-        <Route path="/signup" element = {<Signup setIsLoggedIn = {setIsLoggedIn}/>}/>
-        <Route path="/dashboard" element =  {
-        <PersonalRoute isLoggedIn={isLoggedIn}>
-          <Dashboard/>
-        </PersonalRoute>
-        } />
-      </Routes>
+      {/* HEADER */}
+      <header className="h-16 border-b border-richblack-700">
+        <Navbar isLoggedIn={isLoggedIn} setIsLoggedIn={setIsLoggedIn} />
+      </header>
+
+      {/* MAIN */}
+      <main className="flex-1 overflow-hidden">
+        <Routes>
+          <Route path="/" element={<Home isLoggedIn={isLoggedIn} />} />
+          <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn} />} />
+          <Route path="/signup" element={<Signup setIsLoggedIn={setIsLoggedIn} />} />
+
+          <Route
+            path="/dashboard"
+            element={
+              <PersonalRoute isLoggedIn={isLoggedIn}>
+                <Dashboard />
+              </PersonalRoute>
+            }
+          />
+
+          {/* PDF Viewer */}
+          <Route path="/pdf-viewer" element={<PDFViewer />} />
+        </Routes>
+      </main>
     </div>
-  )
+  );
 }
 
 export default App;
