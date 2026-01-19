@@ -2,8 +2,7 @@ import { useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import Toolbar from "./Toolbar";
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
-import { saveAs } from "file-saver";
+import { PDFDocument, rgb } from "pdf-lib";
 
 pdfjs.GlobalWorkerOptions.workerSrc =
   `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
@@ -14,11 +13,14 @@ function PDFViewer() {
   const [currentPage, setCurrentPage] = useState(1);
   const [tool, setTool] = useState(null);
   const [elements, setElements] = useState([]);
+  const [commentZoom, setCommentZoom] = useState(1);
+  const [dragId, setDragId] = useState(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
   function onFileChange(e) {
-    const selectedFile = e.target.files[0];
-    if (selectedFile) {
-      setFile(URL.createObjectURL(selectedFile));
+    const f = e.target.files[0];
+    if (f) {
+      setFile(URL.createObjectURL(f));
       setCurrentPage(1);
       setElements([]);
     }
@@ -29,128 +31,190 @@ function PDFViewer() {
   }
 
   function addElement(el) {
-    setElements((prev) => [...prev, el]);
+    setElements((p) => [...p, el]);
   }
 
-  // ✅ DOWNLOAD FINAL PDF
+  function onMouseMove(e) {
+    if (dragId === null) return;
+    setElements((prev) =>
+      prev.map((el, i) =>
+        i === dragId
+          ? {
+              ...el,
+              x: e.nativeEvent.offsetX - dragOffset.x,
+              y: e.nativeEvent.offsetY - dragOffset.y,
+            }
+          : el
+      )
+    );
+  }
+
+  function onMouseUp() {
+    setDragId(null);
+  }
+
   async function downloadPdf() {
     if (!file) return;
 
-    // Load original PDF
-    const existingPdfBytes = await fetch(file).then((res) =>
-      res.arrayBuffer()
-    );
-    const pdfDoc = await PDFDocument.load(existingPdfBytes);
+    const pdfBytes = await fetch(file).then((r) => r.arrayBuffer());
+    const pdfDoc = await PDFDocument.load(pdfBytes);
     const pages = pdfDoc.getPages();
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
-    elements.forEach((el) => {
-      const page = pages[currentPage - 1];
+    const renderedWidth = Math.min(window.innerWidth - 40, 900);
+
+    for (const el of elements) {
+      const page = pages[el.page - 1];
+      if (!page) continue;
+
       const { width, height } = page.getSize();
+      const scale = width / renderedWidth;
 
-      if (el.type === "text") {
-        page.drawText(el.value, {
-          x: el.x,
-          y: height - el.y,
-          size: 14,
-          font,
-          color: rgb(1, 1, 0),
+      // ================= IMAGE SIGNATURE =================
+      if (el.type === "image") {
+        const imgBytes = await fetch(el.value).then((r) =>
+          r.arrayBuffer()
+        );
+
+        const image =
+          el.value.includes("png")
+            ? await pdfDoc.embedPng(imgBytes)
+            : await pdfDoc.embedJpg(imgBytes);
+
+        page.drawImage(image, {
+          x: el.x * scale,
+          y: height - el.y * scale - el.height * scale,
+          width: el.width * scale,
+          height: el.height * scale,
         });
+        continue;
       }
-    });
 
-    const pdfBytes = await pdfDoc.save();
-    saveAs(
-      new Blob([pdfBytes], { type: "application/pdf" }),
-      "edited.pdf"
-    );
+      // ================= TEXT / COMMENT =================
+      const fontSize = (el.fontSize || 16) * scale * commentZoom;
+
+      const r = parseInt(el.color?.slice(1, 3) || "00", 16) / 255;
+      const g = parseInt(el.color?.slice(3, 5) || "00", 16) / 255;
+      const b = parseInt(el.color?.slice(5, 7) || "00", 16) / 255;
+
+      page.drawText(el.value, {
+        x: el.x * scale,
+        y: height - el.y * scale - fontSize,
+        size: fontSize,
+        color: rgb(r, g, b),
+      });
+    }
+
+    const out = await pdfDoc.save();
+    const blob = new Blob([out], { type: "application/pdf" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "edited-document.pdf";
+    link.click();
   }
 
   return (
-    <div className="h-full flex flex-col text-white">
+    <div className="min-h-screen flex flex-col bg-richblack-900 text-white">
+      <Toolbar
+        setTool={setTool}
+        onCommentZoomIn={() => setCommentZoom((z) => Math.min(z + 0.1, 3))}
+        onCommentZoomOut={() => setCommentZoom((z) => Math.max(z - 0.1, 0.5))}
+        onDownloadPdf={downloadPdf}
+      />
 
-      {/* TOOLBAR */}
-      <Toolbar setTool={setTool} />
-
-      {/* DOWNLOAD BUTTON */}
-      {file && (
-        <div className="p-2 bg-gray-900">
-          <button
-            onClick={downloadPdf}
-            className="bg-green-600 px-3 py-1 rounded"
-          >
-            Download PDF
-          </button>
-        </div>
-      )}
-
-      {/* BODY */}
-      <div className="flex flex-1">
-
-        {/* SIDEBAR */}
-        {file && numPages && (
-          <div className="w-44 overflow-y-auto bg-richblack-800 p-2">
-            <Document file={file}>
-              {Array.from(new Array(numPages), (_, i) => (
-                <div
-                  key={i}
-                  className="mb-2 cursor-pointer border border-richblack-600 hover:border-yellow-400"
-                  onClick={() => setCurrentPage(i + 1)}
-                >
-                  <Page pageNumber={i + 1} width={120} />
-                </div>
-              ))}
-            </Document>
-          </div>
+      <div className="flex-1 overflow-auto flex flex-col items-center">
+        {!file && (
+          <input type="file" accept="application/pdf" onChange={onFileChange} />
         )}
 
-        {/* MAIN VIEW */}
-        <div className="flex-1 flex justify-center overflow-auto p-4">
-          {!file && (
-            <input
-              type="file"
-              accept="application/pdf"
-              onChange={onFileChange}
-            />
-          )}
+        {file && (
+          <div
+            className="relative mt-6"
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+          >
+            <Document file={file} onLoadSuccess={onLoadSuccess}>
+              <Page
+                pageNumber={currentPage}
+                width={Math.min(window.innerWidth - 40, 900)}
+                renderTextLayer={false}
+                renderAnnotationLayer={false}
+              />
+            </Document>
 
-          {file && (
-            <div className="relative">
-              <Document file={file} onLoadSuccess={onLoadSuccess}>
-                <Page pageNumber={currentPage} width={700} />
-              </Document>
-
-              {elements.map((el, i) => (
+            {elements
+              .filter((el) => el.page === currentPage)
+              .map((el, i) => (
                 <div
                   key={i}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    setDragId(i);
+                    setDragOffset({
+                      x: e.nativeEvent.offsetX,
+                      y: e.nativeEvent.offsetY,
+                    });
+                  }}
                   style={{
                     position: "absolute",
                     top: el.y,
                     left: el.x,
-                    color: el.color,
-                    fontFamily: el.font,
-                    background: el.bg,
-                    padding: "4px",
+                    cursor: "move",
+                    userSelect: "none",
                   }}
                 >
-                  {el.value}
+                  {el.type === "image" ? (
+                    <img
+                      src={el.value}
+                      width={el.width}
+                      height={el.height}
+                      draggable={false}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        color: el.color,
+                        fontFamily: el.font,
+                        fontSize: `${(el.fontSize || 16) * commentZoom}px`,
+                        background: el.bg || "#fff7cc",
+                        border: "1px dashed #facc15",
+                        padding: "6px 8px",
+                        borderRadius: "4px",
+                      }}
+                    >
+                      {el.value}
+                    </div>
+                  )}
                 </div>
               ))}
 
-              <div
-                className="absolute inset-0"
-                onClick={(e) => {
-                  if (!tool) return;
-                  addElement({
-                    ...tool,
-                    x: e.nativeEvent.offsetX,
-                    y: e.nativeEvent.offsetY,
-                  });
-                }}
-              />
-            </div>
-          )}
-        </div>
+            <div
+              className="absolute inset-0"
+              onClick={(e) => {
+                if (!tool || dragId !== null) return;
+                addElement({
+                  ...tool,
+                  page: currentPage,
+                  x: e.nativeEvent.offsetX,
+                  y: e.nativeEvent.offsetY,
+                });
+              }}
+            />
+          </div>
+        )}
+
+        {file && (
+          <div className="flex gap-4 my-6">
+            <button disabled={currentPage <= 1} onClick={() => setCurrentPage(p => p - 1)}>
+              Prev
+            </button>
+            <span>
+              Page {currentPage} / {numPages}
+            </span>
+            <button disabled={currentPage >= numPages} onClick={() => setCurrentPage(p => p + 1)}>
+              Next
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

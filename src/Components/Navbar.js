@@ -1,34 +1,31 @@
-import { Link } from "react-router-dom";
-import logo from "../assets/Logo.svg";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
 
 const Navbar = ({ isLoggedIn, setIsLoggedIn }) => {
+  const navigate = useNavigate();
+
   return (
     <div className="flex items-center w-11/12 justify-between max-w-[1160px] h-full mx-auto">
-      
-      {/* Logo */}
-      <Link to="/">
-        <img
-          src={logo}
-          alt="logo"
-          width={160}
-          height={32}
-          loading="lazy"
-        />
-      </Link>
 
-      {/* Nav Links */}
+      {/* NAV LINKS */}
       <nav>
         <ul className="flex text-richblack-100 gap-x-6">
           <li><Link to="/">Home</Link></li>
           <li><Link to="/">About</Link></li>
           <li><Link to="/">Contact</Link></li>
-          <li><Link to="/pdf-viewer">PDF Viewer</Link></li>
+
+          {/* ✅ SHOW ONLY WHEN LOGGED IN */}
+          {isLoggedIn && (
+            <li>
+              <Link to="/pdf-viewer">PDF Viewer</Link>
+            </li>
+          )}
         </ul>
       </nav>
 
-      {/* Auth Buttons */}
+      {/* AUTH BUTTONS */}
       <div className="flex items-center gap-x-4">
+
         {!isLoggedIn && (
           <Link to="/login">
             <button className="text-richblack-100 bg-richblack-800 px-3 py-2 rounded-lg border border-richblack-700">
@@ -50,6 +47,9 @@ const Navbar = ({ isLoggedIn, setIsLoggedIn }) => {
             onClick={() => {
               setIsLoggedIn(false);
               toast.success("Logged Out");
+
+              // ✅ REDIRECT AFTER LOGOUT
+              navigate("/login");
             }}
             className="text-richblack-100 bg-richblack-800 px-3 py-2 rounded-lg border border-richblack-700"
           >
@@ -57,13 +57,6 @@ const Navbar = ({ isLoggedIn, setIsLoggedIn }) => {
           </button>
         )}
 
-        {isLoggedIn && (
-          <Link to="/dashboard">
-            <button className="text-richblack-100 bg-richblack-800 px-3 py-2 rounded-lg border border-richblack-700">
-              Dashboard
-            </button>
-          </Link>
-        )}
       </div>
     </div>
   );
