@@ -165,6 +165,7 @@ function PDFViewer() {
                   {el.type === "image" ? (
                     <img
                       src={el.value}
+                      alt="Uploaded signature"
                       width={el.width}
                       height={el.height}
                       draggable={false}

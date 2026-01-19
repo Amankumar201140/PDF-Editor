@@ -4,7 +4,6 @@ import Navbar from "./Components/Navbar";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
-import Dashboard from "./pages/Dashboard";
 import PersonalRoute from "./Components/PersonalRoute";
 import PDFViewer from "./Components/PdfViewer";
 import { useState } from "react";
@@ -15,12 +14,10 @@ function App() {
   return (
     <div className="min-h-screen flex flex-col bg-richblack-900">
       
-      {/* HEADER */}
       <header className="h-16 border-b border-richblack-700">
         <Navbar isLoggedIn={isLoggedIn} setIsLoggedIn={setIsLoggedIn} />
       </header>
 
-      {/* MAIN */}
       <main className="flex-1 overflow-hidden">
         <Routes>
           <Route path="/" element={<Home isLoggedIn={isLoggedIn} />} />
@@ -36,7 +33,6 @@ function App() {
             }
           />
 
-          {/* PDF Viewer */}
           <Route path="/pdf-viewer" element={<PDFViewer />} />
         </Routes>
       </main>
